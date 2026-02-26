@@ -1,0 +1,50 @@
+### Health
+GET http://localhost:3000/health
+
+### Criar request
+POST http://localhost:3000/requests
+Content-Type: application/json
+
+{
+  "type": "day-off",
+  "startDate": "2026-03-07",
+  "endDate": "2026-03-13"
+}
+
+### Criar user
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "nome": "João Silva",
+  "email": "joao@example.com",
+  "role": "funcionario"
+}
+
+### Alterar status da request
+PUT http://localhost:3000/requests/89b7302d-f714-4604-8a92-8c43c35093b8
+Content-Type: application/json
+
+{
+  "status": "APPROVED"
+}
+
+### Buscar request específica
+GET http://localhost:3000/requests/1f9e4e37-d8c0-40d5-90ca-3fdec9bc4910
+
+### Listar histórico da request
+GET http://localhost:3000/requests/00000000-0000-0000-0000-000000000001/history
+
+### Listar minhas requests
+GET http://localhost:3000/requests
+
+### Listar users
+GET http://localhost:3000/users
+
+### Filtrar por status
+GET http://localhost:3000/requests?status=DRAFT
+
+### Deletar request
+DELETE http://localhost:3000/requests/df9f5d1b-cea1-4132-bea8-6f48f2a1411b
+### Recarregar o saldo de todos os usuários
+POST http://localhost:3000/users/reload-all-balances
