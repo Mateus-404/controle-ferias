@@ -38,7 +38,7 @@ npm install
 ```bash
 # Crie um arquivo .env na pasta /back
 PORT=3000
-DATABASE_URL=postgresql://usuario:senha@localhost:5432/biud_time
+DATABASE_URL
 ```
 
 5. Execute as migrações do banco de dados:
