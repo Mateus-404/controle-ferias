@@ -6,7 +6,11 @@ import routes from './routes/index.js';
 async function start() {
     const server = Fastify();
 
-    await server.register(cors, {origin: true});
+    await server.register(cors, {
+        origin: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id']
+    });
     await server.register(routes);
 
     server.addHook('onRequest', async (request) => {

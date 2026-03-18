@@ -13,12 +13,12 @@ async function updateUserBalance(userId, type, days) {
     'ferias': 'balance_ferias',
     'day-off': 'balance_day_off'
   };
-  
+
   const column = columnMap[type];
   if (!column) {
     throw new Error('Tipo de requisição inválido');
   }
-  
+
   await pool.query(
     `UPDATE users SET ${column} = ${column} - $1 WHERE id = $2`,
     [days, userId]
@@ -30,12 +30,12 @@ async function restoreUserBalance(userId, type, days) {
     'ferias': 'balance_ferias',
     'day-off': 'balance_day_off'
   };
-  
+
   const column = columnMap[type];
   if (!column) {
     throw new Error('Tipo de requisição inválido');
   }
-  
+
   await pool.query(
     `UPDATE users SET ${column} = ${column} + $1 WHERE id = $2`,
     [days, userId]
@@ -44,21 +44,21 @@ async function restoreUserBalance(userId, type, days) {
 
 export default async function requestsRoutes(server) {
   server.get("/", {
-      schema: {
-        querystring: {
-          type: "object",
-          properties: {
-            status: {
-              type: "string",
-              enum: ["DRAFT", "PENDING", "APPROVED", "REJECTED"],
-            },
-            type: { type: "string", enum: ["ferias", "day-off"] },
-            from: { type: "string", format: "date" },
-            to: { type: "string", format: "date" },
+    schema: {
+      querystring: {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["DRAFT", "PENDING", "APPROVED", "REJECTED"],
           },
+          type: { type: "string", enum: ["ferias", "day-off"] },
+          from: { type: "string", format: "date" },
+          to: { type: "string", format: "date" },
         },
       },
     },
+  },
     async (request, reply) => {
       if (!request.user?.id) {
         return reply.status(401).send({ message: "Usuário não autenticado" });
@@ -96,18 +96,18 @@ export default async function requestsRoutes(server) {
   );
 
   server.post("/", {
-      schema: {
-        body: {
-          type: "object",
-          required: ["type", "startDate", "endDate"],
-          properties: {
-            type: { type: "string", enum: ["ferias", "day-off"] },
-            startDate: { type: "string", format: "date" },
-            endDate: { type: "string", format: "date" },
-          },
+    schema: {
+      body: {
+        type: "object",
+        required: ["type", "startDate", "endDate"],
+        properties: {
+          type: { type: "string", enum: ["ferias", "day-off"] },
+          startDate: { type: "string", format: "date" },
+          endDate: { type: "string", format: "date" },
         },
       },
     },
+  },
     async (request, reply) => {
       const { type, startDate, endDate } = request.body;
 
@@ -127,7 +127,7 @@ export default async function requestsRoutes(server) {
         }
       }
 
-      if (type === "day-off"){
+      if (type === "day-off") {
         if (diffInDays > 10) {
           return reply
             .status(400)
@@ -135,11 +135,15 @@ export default async function requestsRoutes(server) {
         }
       }
 
-      const hoje = new Date();
-      if (new Date(startDate) < hoje){
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const start = new Date(startDate + 'T00:00:00');
+
+      if (start < today) {
         return reply
           .status(400)
-          .send({ message: "A data de início não pode ser no passado"});
+          .send({ message: "A data de início não pode ser no passado" });
       }
 
       if (!request.user?.id) {
@@ -151,7 +155,7 @@ export default async function requestsRoutes(server) {
       if (type === "ferias") {
         const balance = await getUserBalance(userId);
         const daysNeeded = diffInDays + 1;
-        
+
         if (balance.ferias < daysNeeded) {
           return reply
             .status(400)
@@ -162,7 +166,7 @@ export default async function requestsRoutes(server) {
       if (type === "day-off") {
         const balance = await getUserBalance(userId);
         const daysNeeded = diffInDays + 1;
-        
+
         if (balance.day_off < daysNeeded) {
           return reply
             .status(400)
@@ -274,9 +278,11 @@ export default async function requestsRoutes(server) {
     schema: {
       body: {
         type: 'object',
-        required: ['status'],
         properties: {
-          status: { type: 'string', enum: ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED'] }
+          status: { type: 'string', enum: ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED'] },
+          type: { type: 'string', enum: ['ferias', 'day-off'] },
+          startDate: { type: 'string', format: 'date' },
+          endDate: { type: 'string', format: 'date' }
         }
       }
     }
@@ -286,7 +292,7 @@ export default async function requestsRoutes(server) {
     }
 
     const { id } = request.params;
-    const { status } = request.body;
+    const { status, type, startDate, endDate } = request.body;
     const userId = request.user.id;
 
     const client = await pool.connect();
@@ -299,7 +305,7 @@ export default async function requestsRoutes(server) {
         FROM requests
         WHERE id = $1 AND user_id = $2
       `;
-      
+
       const { rows: checkRows } = await client.query(checkQuery, [id, userId]);
 
       if (checkRows.length === 0) {
@@ -309,55 +315,91 @@ export default async function requestsRoutes(server) {
 
       const requestData = checkRows[0];
 
-      if (status === 'APPROVED' && requestData.type === 'ferias') {
-        const balance = await getUserBalance(requestData.user_id);
-        const feriasDiffInDays = Math.floor((new Date(requestData.end_date) - new Date(requestData.start_date)) / (1000 * 60 * 60 * 24)) + 1;
-        
-        if (balance.ferias < feriasDiffInDays) {
+      if (type || startDate || endDate) {
+        if (requestData.current_status === 'APPROVED') {
           await client.query('ROLLBACK');
-          return reply.status(400).send({ message: "Saldo de férias insuficiente para este período" });
+          return reply.status(400).send({ message: "Não é possível editar uma solicitação já aprovada" });
         }
 
-        await updateUserBalance(requestData.user_id, 'ferias', feriasDiffInDays);
-      }
+        const newType = type || requestData.type;
+        const newStart = startDate || requestData.start_date;
+        const newEnd = endDate || requestData.end_date;
 
-      if (status === 'APPROVED' && requestData.type === 'day-off') {
-        const balance = await getUserBalance(requestData.user_id);
-        const dayoffDiffInDays = Math.floor((new Date(requestData.end_date) - new Date(requestData.start_date)) / (1000 * 60 * 60 * 24)) + 1;
-        
-        if (balance.day_off < dayoffDiffInDays) {
+        if (new Date(newEnd) < new Date(newStart)) {
           await client.query('ROLLBACK');
-          return reply.status(400).send({ message: "Saldo de day-off insuficiente para este período" });
+          return reply.status(400).send({ message: "Data final não pode ser anterior à data inicial" });
         }
 
-        await updateUserBalance(requestData.user_id, 'day-off', dayoffDiffInDays);
+        const updateDataQuery = `
+          UPDATE requests
+          SET type = $1, start_date = $2, end_date = $3
+          WHERE id = $4
+          RETURNING id, type, start_date, end_date, status, created_at
+        `;
+
+        const { rows: updateRows } = await client.query(updateDataQuery, [newType, newStart, newEnd, id]);
+
+        await client.query('COMMIT');
+        return {
+          message: 'Solicitação atualizada com sucesso',
+          request: updateRows[0]
+        };
       }
 
-      const updateQuery = `
-        UPDATE requests
-        SET status = $1
-        WHERE id = $2
-        RETURNING id, type, start_date, end_date, status, created_at
-      `;
+      if (status) {
+        if (status === 'APPROVED' && requestData.type === 'ferias') {
+          const balance = await getUserBalance(requestData.user_id);
+          const feriasDiffInDays = Math.floor((new Date(requestData.end_date) - new Date(requestData.start_date)) / (1000 * 60 * 60 * 24)) + 1;
 
-      const { rows: updateRows } = await client.query(updateQuery, [status, id]);
-      const updatedRequest = updateRows[0];
+          if (balance.ferias < feriasDiffInDays) {
+            await client.query('ROLLBACK');
+            return reply.status(400).send({ message: "Saldo de férias insuficiente para este período" });
+          }
 
-      const historyQuery = `
-        INSERT INTO requests_history (request_id, status, changed_by)
-        VALUES ($1, $2, $3)
-        RETURNING id, created_at
-      `;
+          await updateUserBalance(requestData.user_id, 'ferias', feriasDiffInDays);
+        }
 
-      await client.query(historyQuery, [id, status, userId]);
+        if (status === 'APPROVED' && requestData.type === 'day-off') {
+          const balance = await getUserBalance(requestData.user_id);
+          const dayoffDiffInDays = Math.floor((new Date(requestData.end_date) - new Date(requestData.start_date)) / (1000 * 60 * 60 * 24)) + 1;
 
-      await client.query('COMMIT');
-      
-      return {
-        message: 'Status atualizado com sucesso',
-        request: updatedRequest
-      };
-      
+          if (balance.day_off < dayoffDiffInDays) {
+            await client.query('ROLLBACK');
+            return reply.status(400).send({ message: "Saldo de day-off insuficiente para este período" });
+          }
+
+          await updateUserBalance(requestData.user_id, 'day-off', dayoffDiffInDays);
+        }
+
+        const updateStatusQuery = `
+          UPDATE requests
+          SET status = $1
+          WHERE id = $2
+          RETURNING id, type, start_date, end_date, status, created_at
+        `;
+
+        const { rows: updateRows } = await client.query(updateStatusQuery, [status, id]);
+        const updatedRequest = updateRows[0];
+
+        const historyQuery = `
+          INSERT INTO requests_history (request_id, status, changed_by)
+          VALUES ($1, $2, $3)
+          RETURNING id, created_at
+        `;
+
+        await client.query(historyQuery, [id, status, userId]);
+
+        await client.query('COMMIT');
+
+        return {
+          message: 'Status atualizado com sucesso',
+          request: updatedRequest
+        };
+      }
+
+      await client.query('ROLLBACK');
+      return reply.status(400).send({ message: 'Nada para atualizar' });
+
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -383,7 +425,7 @@ export default async function requestsRoutes(server) {
         SELECT id, type, start_date, end_date, status FROM requests
         WHERE id = $1 AND user_id = $2
       `;
-      
+
       const { rows: checkRows } = await client.query(checkQuery, [id, userId]);
 
       if (checkRows.length === 0) {
