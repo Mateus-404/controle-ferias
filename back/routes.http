@@ -1,6 +1,34 @@
 ### Health
 GET http://localhost:3000/health
 
+### Login (Obter Token)
+# @name login
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "[EMAIL_ADDRESS]",
+  "password": "[PASSWORD]"
+}
+
+### Guardar o token da resposta anterior
+@token = {{login.response.body.token}}
+
+### Listar minhas requests (Protegido)
+GET http://localhost:3000/requests
+Authorization: Bearer {{token}}
+
+### Criar request (Protegido)
+POST http://localhost:3000/requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "day-off",
+  "startDate": "2026-04-07",
+  "endDate": "2026-04-13"
+}
+
 ### Criar request
 POST http://localhost:3000/requests
 Content-Type: application/json

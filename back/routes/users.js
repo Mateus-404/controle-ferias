@@ -1,6 +1,8 @@
 import { pool } from '../db.js'
+import bcrypt from 'bcrypt'
 
 export default async function usersRoutes(server) {
+  server.addHook('onRequest', server.authenticate)
 
   server.get('/', async () => {
     const { rows } = await pool.query('SELECT id, nome, email, role, balance_ferias, balance_day_off, created_at FROM users')
@@ -11,24 +13,26 @@ export default async function usersRoutes(server) {
     schema: {
       body: {
         type: 'object',
-        required: ['nome', 'email', 'role'],
+        required: ['nome', 'email', 'role', 'password'],
         properties: {
           nome: { type: 'string' },
           email: { type: 'string', format: 'email' },
-          role: { type: 'string', enum: ['funcionario', 'gestor', 'admin'] }
+          role: { type: 'string', enum: ['funcionario', 'gestor', 'admin'] },
+          password: { type: 'string', minLength: 6 }
         }
       }
     }
   }, async (request, reply) => {
-    const { nome, email, role } = request.body
+    const { nome, email, role, password } = request.body
 
     try {
+      const hashedPassword = await bcrypt.hash(password, 10)
       const query = `
-        INSERT INTO users (nome, email, role)
-        VALUES ($1, $2, $3)
+        INSERT INTO users (nome, email, role, password)
+        VALUES ($1, $2, $3, $4)
         RETURNING id, nome, email, role, created_at
       `
-      const { rows } = await pool.query(query, [nome, email, role])
+      const { rows } = await pool.query(query, [nome, email, role, hashedPassword])
       return reply.status(201).send(rows[0])
     } catch (err) {
       if (err.code === '23505') {

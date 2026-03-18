@@ -43,6 +43,8 @@ async function restoreUserBalance(userId, type, days) {
 }
 
 export default async function requestsRoutes(server) {
+  server.addHook('onRequest', server.authenticate)
+
   server.get("/", {
     schema: {
       querystring: {
