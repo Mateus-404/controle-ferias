@@ -2,9 +2,7 @@ import { pool } from '../db.js'
 import bcrypt from 'bcrypt'
 
 export default async function usersRoutes(server) {
-  server.addHook('onRequest', server.authenticate)
-
-  server.get('/', async () => {
+  server.get('/', { onRequest: [server.authenticate] }, async () => {
     const { rows } = await pool.query('SELECT id, nome, email, role, balance_ferias, balance_day_off, created_at FROM users')
     return rows
   })
@@ -42,16 +40,27 @@ export default async function usersRoutes(server) {
     }
   })
 
-  server.get('/balance', async (request, reply) => {
-    const userId = request.headers['x-user-id']
-    const { rows } = await pool.query('SELECT balance_ferias, balance_day_off FROM users WHERE id = $1', [userId])
-    return reply.send({
-      vacation_balance: rows[0].balance_ferias,
-      day_off_balance: rows[0].balance_day_off
-    })
+  server.get('/balance', { onRequest: [server.authenticate] }, async (request, reply) => {
+    const userId = request.user.id
+
+    try {
+      const { rows } = await pool.query('SELECT balance_ferias, balance_day_off FROM users WHERE id = $1', [userId])
+
+      if (rows.length === 0) {
+        return reply.status(404).send({ message: 'Usuário não encontrado' })
+      }
+
+      return reply.send({
+        vacation_balance: rows[0].balance_ferias,
+        day_off_balance: rows[0].balance_day_off
+      })
+    } catch (err) {
+      server.log.error(err)
+      return reply.status(500).send({ message: 'Erro interno no servidor' })
+    }
   })
 
-  server.put('/reload-balance/:id', async (request, reply) => {
+  server.put('/reload-balance/:id', { onRequest: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params
 
     try {
@@ -77,6 +86,7 @@ export default async function usersRoutes(server) {
   })
 
   server.post('/reload-all-balances', {
+    onRequest: [server.authenticate],
     schema: {
       description: 'Recarrega todos os saldos para o valor padrão'
     }
@@ -92,6 +102,29 @@ export default async function usersRoutes(server) {
       return reply.status(200).send({
         message: `Saldos recarregados com sucesso para ${rows.length} usuários`,
         users: rows
+      })
+    } catch (err) {
+      throw err
+    }
+  })
+  server.delete('/:id', { onRequest: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params
+
+    try {
+      const query = `
+        DELETE FROM users 
+        WHERE id = $1
+        RETURNING id, nome, email, role, created_at
+      `
+      const { rows } = await pool.query(query, [id])
+
+      if (rows.length === 0) {
+        return reply.status(404).send({ message: 'Usuário não encontrado' })
+      }
+
+      return reply.status(200).send({
+        message: 'Usuário deletado com sucesso',
+        user: rows[0]
       })
     } catch (err) {
       throw err

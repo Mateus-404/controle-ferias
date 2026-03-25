@@ -7,8 +7,8 @@ POST http://localhost:3000/auth/login
 Content-Type: application/json
 
 {
-  "email": "[EMAIL_ADDRESS]",
-  "password": "[PASSWORD]"
+  "email": "user@example.com",
+  "password": "123456"
 }
 
 ### Guardar o token da resposta anterior
@@ -44,9 +44,10 @@ POST http://localhost:3000/users
 Content-Type: application/json
 
 {
-  "nome": "João Silva",
-  "email": "joao@example.com",
-  "role": "funcionario"
+  "nome": "Mateus Gomes",
+  "email": "mateusgomes@biud.com.br",
+  "password": "mateusZO1",
+  "role": "admin"
 }
 
 ### Alterar status da request
@@ -74,5 +75,11 @@ GET http://localhost:3000/requests?status=DRAFT
 
 ### Deletar request
 DELETE http://localhost:3000/requests/df9f5d1b-cea1-4132-bea8-6f48f2a1411b
+Authorization: Bearer {{token}}
+
+### Deletar user
+DELETE http://localhost:3000/users/475f589c-34ce-47d0-aa1f-62cc4729d8fc
+Authorization: Bearer {{token}}
+
 ### Recarregar o saldo de todos os usuários
 POST http://localhost:3000/users/reload-all-balances

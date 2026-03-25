@@ -1,5 +1,5 @@
 import { formatDate } from '../utils/date'
-import { type Request } from '../types/requests'
+import { type Request, type RequestStatus } from '../types/requests'
 import editIcon from '../assets/ferramenta-lapis.png'
 import deleteIcon from '../assets/lata-de-lixo.png'
 import { deleteUserRequest } from '../services/api'
@@ -11,14 +11,34 @@ type Props = {
   onClose: () => void
   onDelete: () => void
   onEdit: () => void
+  onSubmit: () => void
+  role: string
 }
+
+const user = JSON.parse(localStorage.getItem('@biud-time:user') || '{}')
+const role = user.role
 
 const typeLabels: Record<RequestType, string> = {
   "ferias": "⛱️ Férias",
   "day-off": "💆🏻‍♂️ Day Off",
 };
 
-export function RequestModal({ request, onClose, onDelete, onEdit }: Props) {
+const statusLabels: Record<RequestStatus, string> = {
+  "DRAFT": "Rascunho",
+  "PENDING": "Pendente",
+  "APPROVED": "Aprovado",
+  "REJECTED": "Reprovado",
+};
+
+const showApproveButton = (status: RequestStatus, role: string) => {
+  return status === 'PENDING' && role === 'admin' || role === 'gestor'
+}
+
+const showRejectButton = (status: RequestStatus, role: string) => {
+  return status === 'PENDING' && role === 'admin' || role === 'gestor'
+}
+
+export function RequestModal({ request, onClose, onDelete, onEdit, onSubmit }: Props) {
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
     try {
@@ -51,7 +71,7 @@ export function RequestModal({ request, onClose, onDelete, onEdit }: Props) {
         </p>
 
         <p>
-          <strong>Status:</strong> {request.status}
+          <strong>Status:</strong> {statusLabels[request.status]}
         </p>
 
         <p>
@@ -61,6 +81,18 @@ export function RequestModal({ request, onClose, onDelete, onEdit }: Props) {
         <div className="modal-actions-overlay">
           <button className="edit-btn" title="Editar Solicitação" onClick={onEdit}><img src={editIcon} alt="edit" /></button>
           <button className="delete-btn" title="Excluir Solicitação" onClick={handleDelete}><img src={deleteIcon} alt="delete" /></button>
+          {request.status === 'DRAFT' && (
+            <button className="submit-btn" title="Enviar Solicitação" onClick={onSubmit}>Enviar</button>
+          )}
+
+          {showRejectButton(request.status, role) && (
+            <button className="btn-secondary" title="Reprovar Solicitação" onClick={onSubmit}>Reprovar</button>
+          )}
+
+          {showApproveButton(request.status, role) && (
+            <button className="submit-btn" title="Aprovar Solicitação" onClick={onSubmit}>Aprovar</button>
+          )}
+
         </div>
       </div>
     </div>

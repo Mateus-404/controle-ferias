@@ -1,14 +1,5 @@
 import { formatDate } from "../utils/date";
-
-type RequestType = "ferias" | "day-off";
-
-type Request = {
-  id: string;
-  type: RequestType;
-  status: string;
-  start_date: string;
-  end_date: string;
-};
+import { type Request, type RequestStatus, type RequestType } from "../types/requests";
 
 type Props = {
   request: Request;
@@ -20,6 +11,13 @@ const typeLabels: Record<RequestType, string> = {
   "day-off": "💆🏻‍♂️ Day Off",
 };
 
+const statusLabels: Record<RequestStatus, string> = {
+  "DRAFT": "Rascunho",
+  "PENDING": "Pendente",
+  "APPROVED": "Aprovado",
+  "REJECTED": "Reprovado",
+};
+
 export function RequestCard({ request, onClick }: Props) {
   return (
     <div className="card" onClick={onClick}>
@@ -28,7 +26,7 @@ export function RequestCard({ request, onClick }: Props) {
       </h3>
 
       <span className={`status status-${request.status.toLowerCase()}`}>
-        {request.status}
+        {statusLabels[request.status]}
       </span>
 
       <p className="period">

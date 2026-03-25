@@ -100,6 +100,13 @@ export function CreateRequestModal({ onClose, onSuccess, requestToEdit }: Props)
               mode="range"
               selected={range}
               onSelect={setRange}
+              modifiers={{
+                disabled: (date) => {
+                  const today = new Date()
+                  today.setHours(0, 0, 0, 0)
+                  return date < today
+                }
+              }}
             />
           </div>
         </div>
