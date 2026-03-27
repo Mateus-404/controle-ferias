@@ -119,6 +119,8 @@ export default async function requestsRoutes(server) {
           .send({ message: "endDate não pode ser antes de startDate" });
       }
 
+      // Cálculo inclusivo da diferença de dias: (Fim - Início) + 1
+      // Ex: 02/04 a 15/04 -> 13 dias de diferença + 1 = 14 dias totais
       const diffInDays = Math.floor((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
 
       if (type === "ferias") {
@@ -215,6 +217,57 @@ export default async function requestsRoutes(server) {
     },
   );
 
+  server.get("/team", {
+    schema: {
+      querystring: {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["DRAFT", "PENDING", "APPROVED", "REJECTED"],
+          },
+          type: { type: "string", enum: ["ferias", "day-off"] },
+          from: { type: "string", format: "date" },
+          to: { type: "string", format: "date" },
+        },
+      },
+    },
+  },
+    async (request, reply) => {
+      const userRole = request.user?.role;
+      if (!request.user?.id || (userRole !== 'admin' && userRole !== 'gestor')) {
+        return reply.status(401).send({ message: "Usuário não autenticado ou sem permissão" });
+      }
+
+      const { status, type, from, to } = request.query;
+
+      const query = `
+      SELECT r.id, r.type, r.start_date, r.end_date, r.status, r.created_at, u.nome as user_name
+      FROM requests r
+      JOIN users u ON r.user_id = u.id
+      WHERE ($1::text IS NULL OR r.status = $1)
+        AND ($2::text IS NULL OR r.type = $2)
+        AND ($3::date IS NULL OR r.start_date >= $3)
+        AND ($4::date IS NULL OR r.end_date <= $4)
+      ORDER BY r.created_at DESC
+    `;
+
+      const values = [
+        status ?? null,
+        type ?? null,
+        from ?? null,
+        to ?? null,
+      ];
+
+      const { rows } = await pool.query(query, values);
+
+      return {
+        total: rows.length,
+        data: rows,
+      };
+    },
+  );
+
   server.get('/:id', async (request, reply) => {
     if (!request.user?.id) {
       return reply.status(401).send({ message: 'Usuário não autenticado' });
@@ -296,19 +349,33 @@ export default async function requestsRoutes(server) {
     const { id } = request.params;
     const { status, type, startDate, endDate } = request.body;
     const userId = request.user.id;
+    const userRole = request.user.role;
 
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      const checkQuery = `
-        SELECT id, type, start_date, end_date, user_id, status as current_status
-        FROM requests
-        WHERE id = $1 AND user_id = $2
-      `;
+      let checkQuery;
+      let queryParams;
 
-      const { rows: checkRows } = await client.query(checkQuery, [id, userId]);
+      if (userRole === 'admin' || userRole === 'gestor') {
+        checkQuery = `
+          SELECT id, type, start_date, end_date, user_id, status as current_status
+          FROM requests
+          WHERE id = $1
+        `;
+        queryParams = [id];
+      } else {
+        checkQuery = `
+          SELECT id, type, start_date, end_date, user_id, status as current_status
+          FROM requests
+          WHERE id = $1 AND user_id = $2
+        `;
+        queryParams = [id, userId];
+      }
+
+      const { rows: checkRows } = await client.query(checkQuery, queryParams);
 
       if (checkRows.length === 0) {
         await client.query('ROLLBACK');
@@ -349,6 +416,11 @@ export default async function requestsRoutes(server) {
       }
 
       if (status) {
+        if ((status === 'APPROVED' || status === 'REJECTED') && userRole !== 'admin' && userRole !== 'gestor') {
+          await client.query('ROLLBACK');
+          return reply.status(403).send({ message: "Apenas administradores e gestores podem aprovar ou reprovar" });
+        }
+
         if (status === 'APPROVED' && requestData.type === 'ferias') {
           const balance = await getUserBalance(requestData.user_id);
           const feriasDiffInDays = Math.floor((new Date(requestData.end_date) - new Date(requestData.start_date)) / (1000 * 60 * 60 * 24)) + 1;

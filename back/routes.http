@@ -45,8 +45,8 @@ Content-Type: application/json
 
 {
   "nome": "Mateus Gomes",
-  "email": "mateusgomes@biud.com.br",
-  "password": "mateusZO1",
+  "email": "[EMAIL_ADDRESS]",
+  "password": "[PASSWORD]",
   "role": "admin"
 }
 

@@ -1,5 +1,5 @@
 import axios from "axios"
-import type { loginInput, loginResponse } from "../types/requests"
+import type { loginInput, loginResponse, registerInput } from "../types/requests"
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
 
 export const api = axios.create({
@@ -26,6 +26,7 @@ export type Request = {
     status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED"
     start_date: string
     end_date: string
+    user_name?: string
 }
 
 //Resposta padrão do GET /requests
@@ -37,6 +38,12 @@ export type GetRequestsResponse = {
 //Buscar solicitações
 export async function getRequests(): Promise<GetRequestsResponse> {
     const response = await api.get<GetRequestsResponse>("/requests")
+    return response.data
+}
+
+//Buscar solicitações da equipe
+export async function getTeamRequests(): Promise<GetRequestsResponse> {
+    const response = await api.get<GetRequestsResponse>("/requests/team")
     return response.data
 }
 
@@ -92,5 +99,11 @@ export async function updateRequestStatus(id: string, status: "DRAFT" | "PENDING
 //Login
 export async function login(data: loginInput) {
     const response = await api.post<loginResponse>("/auth/login", data)
+    return response.data
+}
+
+//Register
+export async function register(data: registerInput) {
+    const response = await api.post<loginResponse>("/auth/register", data)
     return response.data
 }

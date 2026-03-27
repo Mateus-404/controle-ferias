@@ -4,11 +4,16 @@ export type Request = {
   status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED"
   start_date: string
   end_date: string
+  user_name?: string
 }
 
 export type loginInput = {
   email: string
   password: string
+}
+
+export type registerInput = loginInput & {
+  nome: string
 }
 
 export type loginResponse = {

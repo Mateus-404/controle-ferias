@@ -3,6 +3,7 @@ import { type Request, type RequestStatus, type RequestType } from "../types/req
 
 type Props = {
   request: Request;
+  userRole?: string;
   onClick: () => void;
 }
 
@@ -18,7 +19,7 @@ const statusLabels: Record<RequestStatus, string> = {
   "REJECTED": "Reprovado",
 };
 
-export function RequestCard({ request, onClick }: Props) {
+export function RequestCard({ request, userRole, onClick }: Props) {
   return (
     <div className="card" onClick={onClick}>
       <h3 className="card-title">
@@ -28,6 +29,10 @@ export function RequestCard({ request, onClick }: Props) {
       <span className={`status status-${request.status.toLowerCase()}`}>
         {statusLabels[request.status]}
       </span>
+
+      {request.user_name && (userRole === 'admin' || userRole === 'gestor') && (
+        <p> <strong>Colaborador:</strong> {request.user_name} </p>
+      )}
 
       <p className="period">
         📆 {formatDate(request.start_date)} → {formatDate(request.end_date)}

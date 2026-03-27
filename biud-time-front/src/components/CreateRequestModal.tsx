@@ -38,11 +38,23 @@ export function CreateRequestModal({ onClose, onSuccess, requestToEdit }: Props)
   })
 
   const [requestType, setRequestType] = useState<"ferias" | "day-off">(requestToEdit?.type || "ferias")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const calculateDays = () => {
+    if (!range?.from || !range?.to) return 0
+    // Diferença em milissegundos dividida por ms em um dia, arredondada e somada 1 para ser inclusiva
+    const diffTime = Math.abs(range.to.getTime() - range.from.getTime())
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
+    return diffDays
+  }
+
+  const daysCount = calculateDays()
 
   const handleSubmit = async () => {
     if (!range?.from || !range?.to) return
 
     try {
+      setIsLoading(true)
       const data = {
         type: requestType,
         startDate: format(range.from, "yyyy-MM-dd"),
@@ -61,6 +73,8 @@ export function CreateRequestModal({ onClose, onSuccess, requestToEdit }: Props)
       console.error("Erro ao processar solicitação:", error)
       const message = error.response?.data?.message || error.message || "Erro desconhecido"
       alert(`Erro ao processar solicitação: ${message}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -111,14 +125,31 @@ export function CreateRequestModal({ onClose, onSuccess, requestToEdit }: Props)
           </div>
         </div>
 
+        {daysCount > 0 && (
+          <div className="request-summary" style={{
+            backgroundColor: "#f8f9fa",
+            padding: "12px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            border: "1px solid #e9ecef"
+          }}>
+            <p style={{ margin: 0, fontSize: "0.9rem", color: "#495057" }}>
+              <strong>Resumo:</strong> {daysCount} {daysCount === 1 ? "dia" : "dias"} de <strong>{requestType === "ferias" ? "Férias" : "Day-off"}</strong>
+            </p>
+            <p style={{ margin: "4px 0 0 0", fontSize: "0.8rem", color: "#6c757d" }}>
+              Período: {format(range!.from!, "dd/MM/yyyy")} até {format(range!.to!, "dd/MM/yyyy")}
+            </p>
+          </div>
+        )}
+
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>Cancelar</button>
           <button
             className="btn-primary"
             onClick={handleSubmit}
-            disabled={!range?.from || !range?.to}
+            disabled={!range?.from || !range?.to || isLoading}
           >
-            {requestToEdit ? "Salvar alterações" : "Criar solicitação"}
+            {isLoading ? <div className="spinner spinner-small spinner-white"></div> : (requestToEdit ? "Salvar alterações" : "Criar solicitação")}
           </button>
         </div>
       </div>
